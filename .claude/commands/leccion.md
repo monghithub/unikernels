@@ -120,6 +120,73 @@ Adapta el contenido al tipo:
 - **Repaso**: mapa mental textual + preguntas de autoevaluación más exigentes
 - **Proyecto**: spec del entregable, criterios de éxito, pasos de implementación
 
+---
+
+## Guía de diagramas (GitHub los renderiza de forma nativa)
+
+GitHub renderiza Mermaid directamente en archivos `.md`. Úsalo siempre que un diagrama aporte más que el texto.
+
+### Cuándo usar cada tipo
+
+| Tipo | Sintaxis | Cuándo usarlo en el curso |
+|------|----------|--------------------------|
+| Flowchart | `flowchart LR` | Flujos de ejecución, procesos de compilación, llamadas entre componentes |
+| Sequence | `sequenceDiagram` | Syscalls, IPC entre procesos, protocolo de red |
+| Architecture | `graph TD` | Capas de software (app → OS → hardware), arquitecturas |
+| Mindmap | `mindmap` | Repasos, resumen de conceptos de una fase |
+| C4 Context | `C4Context` | Vista de sistema: unikernel vs entorno exterior (hypervisor, red, disco) |
+| C4 Container | `C4Container` | Componentes internos: app + libOS + plataforma |
+| Gitgraph | `gitGraph` | Historial del proyecto o evolución de una tecnología |
+| Timeline | `timeline` | Historia del OS, línea temporal de proyectos unikernel |
+| Quadrant | `quadrantChart` | Comparativas de tecnologías por dos ejes (madurez vs facilidad, etc.) |
+
+### Ejemplos listos para copiar
+
+**Arquitectura en capas (flowchart):**
+````markdown
+```mermaid
+flowchart TD
+    App["Tu aplicación"] --> LibOS["Librerías OS\n(red, memoria, FS)"]
+    LibOS --> Platform["Capa de plataforma\n(KVM / Xen)"]
+    Platform --> HW["Hardware / Hypervisor"]
+```
+````
+
+**Diagrama C4 de contexto:**
+````markdown
+```mermaid
+C4Context
+    title Sistema: unikernel en producción
+    Person(user, "Cliente", "Hace peticiones HTTP")
+    System(uk, "Unikernel", "App + libOS en una única imagen")
+    System_Ext(hyp, "Hypervisor KVM", "Aísla la VM")
+    Rel(user, uk, "HTTPS")
+    Rel(uk, hyp, "hypercalls")
+```
+````
+
+**Diagrama de secuencia (syscall):**
+````markdown
+```mermaid
+sequenceDiagram
+    participant App
+    participant Kernel
+    participant HW as Hardware
+    App->>Kernel: syscall read(fd, buf, n)
+    Kernel->>HW: DMA request
+    HW-->>Kernel: datos en buffer
+    Kernel-->>App: retorno con n bytes
+```
+````
+
+### Reglas de uso
+
+- Pon el diagrama **antes** del párrafo que lo explica, no después.
+- Un diagrama por sección máximo; si necesitas más, el contenido pide dividirse.
+- Los diagramas C4 son ideales para las fases 2–4 (arquitectura interna de unikernels).
+- Los flowcharts y sequence son ideales para fases 1 y 3 (flujos y prácticas).
+- Los mindmaps son obligatorios en las lecciones de tipo **Repaso**.
+
 ### 4. Escribir el archivo
 
 Sobreescribe el placeholder existente en la carpeta correcta con el contenido generado.
