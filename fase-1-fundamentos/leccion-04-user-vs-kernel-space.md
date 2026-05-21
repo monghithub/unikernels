@@ -260,6 +260,51 @@ Esta es la tensión fundamental de los unikernels: **compran rendimiento a cambi
 
 ---
 
+## Respuestas de autoevaluación
+
+**Pregunta 1.** User space ocupa la mitad inferior canónica: de `0x0000000000000000` a `0x00007FFFFFFFFFFF`.
+
+El agujero canónico existe porque los procesadores x86-64 actuales solo implementan 48 bits de espacio de direcciones virtual, pero los punteros tienen 64 bits. El hardware exige que los bits 48–63 sean todos iguales al bit 47 (extensión de signo). Las direcciones que no cumplen esa regla son "no canónicas" y el procesador lanza una excepción de protección general (#GP) si se intenta desreferenciarlas. Esto deja un agujero no utilizable entre `0x0000800000000000` y `0xFFFF7FFFFFFFFFFF` — decenas de petabytes de espacio de direcciones que ningún proceso puede mapear.
+
+---
+
+**Pregunta 2.** La instrucción es **`SYSCALL`** (en x86-64 moderno; `int 0x80` es la forma antigua de 32 bits). El número de syscall va en el registro `RAX`.
+
+En el momento exacto de ejecutar `SYSCALL`: (1) la CPU guarda el puntero de instrucción siguiente (RIP) en `RCX` y los flags (RFLAGS) en `R11`; (2) eleva el nivel de privilegio a ring 0 cambiando el campo CPL en el registro de segmento CS; (3) carga `RIP` desde el MSR `LSTAR`, que el kernel ha configurado al arrancar para apuntar a su entry point de syscalls. A partir de ahí el kernel despacha la operación según el valor en RAX.
+
+---
+
+**Pregunta 3.** Probablemente **0 o 1** de esas 200 llamadas cruzarán al kernel. La libc gestiona un pool de memoria interno (heap): la primera vez que se llama a `malloc`, la libc pide un bloque grande al kernel (via `brk` o `mmap` — una sola syscall) y lo subdivide internamente. Las peticiones posteriores de 128 bytes se satisfacen desde ese pool sin syscall. Solo cuando el pool se agota completamente la libc hace otra syscall. 200 × 128 bytes = 25.600 bytes; el bloque inicial que la libc pide al kernel suele ser de decenas de KB a MB, por lo que todas las peticiones caben sin problema en el primer bloque.
+
+---
+
+**Pregunta 4.** El registro es **`CR3`** (Control Register 3). Contiene la dirección física de la tabla de páginas de nivel 4 (PGD/PML4) del proceso activo. Cambiarlo hace que toda la MMU pase a traducir direcciones virtuales a través de las tablas del nuevo proceso.
+
+Es privilegiado (solo ring 0 puede ejecutar `mov CR3, rax`) porque si cualquier proceso de user space pudiera escribirlo, podría apuntar a una tabla de páginas maliciosa que le diera acceso a toda la memoria física de la máquina: datos de otros procesos, código del kernel, claves criptográficas en memoria, etc.
+
+---
+
+**Pregunta 5.** En Linux (`write(fd, buf, n)` desde ring 3):
+
+1. El proceso emite `SYSCALL` → cambio ring 3 → ring 0 (~100-1000 ciclos de overhead solo para el cambio de modo, más con KPTI activo que también invalida el TLB).
+2. El kernel copia los datos desde el buffer en user space al espacio del kernel.
+3. Gestiona el I/O (page cache, driver, etc.) en ring 0.
+4. Devuelve con `SYSRET` → cambio ring 0 → ring 3 con otro flush de TLB.
+
+En Nanos unikernel, `write()` es una **llamada a función ordinaria** (`CALL`/`RET`) dentro del mismo espacio de memoria. Sin cambio de ring, sin cambio de tablas de páginas, sin flush de TLB. El ahorro son exactamente esos cambios de modo: cientos a miles de ciclos por operación.
+
+---
+
+**Pregunta 6.** El aislamiento lo proporciona el **hipervisor**. Cada instancia del unikernel corre dentro de una máquina virtual separada. El hipervisor (KVM, Xen, AWS Nitro…) gestiona las tablas de páginas extendidas (EPT en Intel, NPT en AMD), que garantizan que la memoria física asignada a una VM no puede ser leída ni escrita desde otra VM, incluso si ambas corren en el mismo servidor físico. El aislamiento entre instancias es una propiedad del hardware (IOMMU + EPT), garantizada por el hipervisor, no por el unikernel. Dentro de una única instancia del unikernel, no existe ningún aislamiento interno.
+
+---
+
+**Pregunta 7.** KPTI (Kernel Page Table Isolation) fue introducido como mitigación de **Meltdown** (2018). Meltdown explotaba que el espacio del kernel estaba mapeado en las tablas de páginas de los procesos de usuario (marcado como no accesible desde ring 3, pero presente). La ejecución especulativa de la CPU podía leer páginas del kernel antes de que la comprobación de permisos terminara, y dejar rastros en la caché del procesador filtrables por canal lateral de tiempo.
+
+KPTI desmapea casi completamente el kernel del espacio de usuario: en ring 3 solo hay un stub mínimo. Al ejecutar `SYSCALL`, el procesador cambia a una tabla de páginas diferente (la del kernel completo), lo que invalida el TLB. Al retornar a ring 3 vuelve a cambiar de tabla. Cada syscall paga ese doble cambio de tablas de páginas con flush de TLB: cientos de ciclos extra por operación. En cargas con alta frecuencia de syscalls, la degradación es de 5–30 %.
+
+---
+
 ## Referencias
 
 - **Intel 64 and IA-32 Architectures Software Developer's Manual, Vol. 3A**, capítulos 2 (System Architecture Overview) y 5 (Protection). Fuente primaria sobre rings, descriptores y protección de memoria. Disponible en intel.com.

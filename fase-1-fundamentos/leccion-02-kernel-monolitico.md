@@ -311,6 +311,49 @@ Aun así, ~2-3 vulnerabilidades críticas del kernel Linux se publican cada mes.
 
 ---
 
+## Respuestas de autoevaluación
+
+**Pregunta 1.** El kernel Linux corre en **ring 0** (el nivel de privilegio máximo de la CPU, con acceso irrestricto a instrucciones y memoria). El código de una aplicación de usuario corre en **ring 3** (el nivel menos privilegiado, con acceso a instrucciones y memoria restringidos por hardware).
+
+---
+
+**Pregunta 2.** Un módulo `.ko` se carga dinámicamente con `insmod`/`modprobe` y puede descargarse con `rmmod` sin reiniciar el sistema. Un driver compilado estáticamente forma parte del bzImage del kernel y siempre está presente en memoria.
+
+La diferencia **no afecta al aislamiento de fallos en absoluto**. Ambos corren en ring 0 una vez activos. Un bug en un módulo `.ko` tiene exactamente el mismo potencial de corromper el espacio del kernel y causar un kernel panic que un bug en código compilado estáticamente. La modularidad de Linux es de desarrollo y distribución (añadir soporte para hardware sin recompilar el kernel entero), no de seguridad.
+
+---
+
+**Pregunta 3.** En Linux, el scheduler llama al MM mediante una **llamada a función C ordinaria** (`call`/`ret`) dentro del mismo espacio de kernel en ring 0. Sin cambio de contexto, sin cambio de ring, sin copia de datos, sin serialización: una instrucción de máquina.
+
+En un microkernel, scheduler y MM son componentes separados que se comunican mediante IPC: hay que serializar un mensaje, ejecutar el round-trip (cambio de contexto entre procesos, posible cambio de espacio de memoria, desencolar el mensaje en el otro extremo), procesar y devolver la respuesta. Ese proceso puede costar varios microsegundos — uno o dos órdenes de magnitud más que una llamada a función.
+
+---
+
+**Pregunta 4.** En un kernel monolítico (ring 0), un buffer overflow explotable en el driver de audio otorga al atacante **control total del procesador**. Puede leer y escribir cualquier dirección física de memoria, modificar las tablas de páginas de cualquier proceso, instalar rootkits, deshabilitar mecanismos de seguridad del kernel y tomar control completo de la máquina.
+
+Si el driver corriera como proceso de usuario separado (modelo microkernel), el exploit solo comprometería ese proceso con privilegios mínimos. No podría acceder a la memoria del kernel ni de otros procesos, ni ejecutar instrucciones privilegiadas. La CPU le impediría físicamente cruzar esa frontera. El sistema continuaría funcionando con el daño contenido.
+
+---
+
+**Pregunta 5.** Una aplicación web que solo necesita TCP/IP y acceso a disco podría descartar de Linux:
+
+- Todos los drivers de dispositivos no usados: USB, audio, Bluetooth, WiFi, GPU, puertos serie, SATA/SAS si usa solo NVMe (o viceversa), etc. (>60 % del código del kernel).
+- Sistemas de ficheros no necesarios: btrfs, xfs, NFS, procfs, sysfs, tmpfs (si no los necesita).
+- IPC de System V (colas de mensajes, semáforos System V, shared memory que no usa).
+- Gestión multi-usuario, namespaces, cgroups si ejecuta una sola carga de trabajo.
+- Módulos de seguridad mandatoria (SELinux, AppArmor): el aislamiento lo proporciona el hipervisor.
+- Gran parte del MM (sin swap, gestión simplificada si es single-process).
+
+En la práctica, un unikernel para ese caso usa una imagen de pocos MB frente a los ~30 MB de un kernel Linux estándar.
+
+---
+
+**Pregunta 6.** KASLR (Kernel Address Space Layout Randomization) aleatoriza la dirección base donde el kernel se carga en memoria en cada arranque. Dificulta los exploits que necesitan conocer la dirección exacta de funciones del kernel (como `commit_creds` o `prepare_kernel_cred`) para saltar a ellas o sobreescribirlas.
+
+**No lo elimina por completo**: los exploits que utilizan vulnerabilidades de filtración de información de memoria (info leaks) pueden deducir la base del kernel en tiempo de ejecución y saltarse KASLR. Los exploits que no necesitan direcciones absolutas (como los que explotan primitivas de escritura arbitraria usando desplazamientos relativos) tampoco se ven afectados.
+
+---
+
 ## Referencias
 
 - **Código fuente de Linux:** <https://github.com/torvalds/linux> — El árbol

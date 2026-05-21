@@ -226,6 +226,31 @@ En las próximas lecciones veremos cómo Linux organiza esas capas internamente,
 
 ---
 
+## Respuestas de autoevaluación
+
+**Pregunta 1.** Cuando Python hace `open("datos.csv", "r")`, se cruza la frontera kernel/usuario al menos **dos veces** antes de recibir los primeros bytes:
+
+1. **`openat()` syscall**: la libc emite la instrucción `syscall` con el número de `openat`. La CPU sube a ring 0. El kernel verifica permisos del archivo, localiza su inode en el VFS, crea una entrada en la tabla de descriptores de fichero del proceso y devuelve el número entero del fd. Vuelve a ring 3.
+2. **`read()` syscall**: al leer, la libc emite `read`. La CPU sube de nuevo a ring 0. El kernel busca los datos en el page cache. Si están en caché, los copia al buffer de usuario y devuelve el control; si no, emite una petición de I/O al driver de disco, espera la interrupción (gestionada en ring 0), copia los datos al buffer y devuelve. Vuelve a ring 3.
+
+En total: mínimo 2 cruces para obtener los primeros bytes. Las lecturas del disco se gestionan dentro de ring 0 sin retornar a user space en el medio.
+
+---
+
+**Pregunta 2.** Cargar un kernel de 30 MB con miles de drivers que nunca se usarán tiene tres costes concretos:
+
+- **Memoria**: el kernel y sus módulos activos ocupan RAM del espacio de kernel que no puede usarse para la aplicación. En una instancia cloud pequeña (512 MB-1 GB), eso representa un porcentaje significativo. Los módulos cargados dinámicamente también consumen memoria aunque los dispositivos que controlan no existan.
+- **Superficie de ataque**: cada línea de código en ring 0 es un vector potencial de vulnerabilidad. Con ~36 millones de líneas, de las que más del 60 % son drivers de hardware que un servidor AWS jamás verá, la superficie expuesta es enorme. Linux publica ~2-3 CVEs críticos por mes precisamente porque cualquier bug en ring 0 puede comprometer el sistema.
+- **Tiempo de arranque**: el kernel inicializa todos sus subsistemas y escanea buses (PCI, USB, ACPI…) aunque no haya dispositivos correspondientes. Eso añade 200-500 ms al arranque de una VM. En entornos serverless con arranques frecuentes, esos milisegundos multiplican el coste por escala.
+
+Sí puede ser un problema: un unikernel para la misma carga de trabajo puede arrancar en menos de 100 ms con una imagen de decenas de KB porque incluye solo los subsistemas que realmente usa.
+
+---
+
+**Pregunta 3.** **No**, no apuntan al mismo byte físico de RAM. Cada proceso tiene su propia tabla de páginas, mantenida por el kernel en la estructura `mm_struct`. La dirección virtual `0x00007fff_deadbeef` es una entrada independiente en la tabla de páginas de cada proceso, mapeada a frames físicos distintos (o a ningún frame, si esa región no está mapeada en ese proceso, lo que causaría un page fault/segfault al acceder). La memoria virtual es una abstracción per-proceso: el mismo número de dirección virtual en dos procesos distintos no tiene ninguna relación con la dirección física subyacente. El kernel gestiona esa ilusión modificando `CR3` en cada cambio de contexto.
+
+---
+
 ## Referencias
 
 | Recurso | Por qué leerlo |

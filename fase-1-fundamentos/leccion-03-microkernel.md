@@ -163,6 +163,48 @@ Eso es exactamente lo que verás en las próximas lecciones.
 
 ---
 
+## Respuestas de autoevaluación
+
+**Pregunta 1.** Los tres componentes son **IPC**, **gestión básica de memoria** y **planificador**. Solo esos tres porque:
+
+- **IPC**: es el mecanismo por el que todos los servidores del sistema se hablan entre sí y con las aplicaciones. Si el IPC estuviera en user space habría una dependencia circular: para invocar al servidor de IPC necesitarías IPC previo. Debe ser la capa más primitiva, siempre disponible.
+- **Gestión básica de memoria**: mapear páginas físicas a espacios de direcciones virtuales requiere escribir en `CR3` y configurar la MMU, operaciones que solo pueden hacerse en ring 0.
+- **Planificador**: responde a interrupciones de timer (hardware privilegiado) y ejecuta cambios de contexto que implican guardar/restaurar registros privilegiados y cambiar `CR3`. Debe estar en ring 0.
+
+Todo lo demás (drivers, FS, red, seguridad) puede vivir en user space y comunicarse mediante el IPC que proporciona el microkernel.
+
+---
+
+**Pregunta 2.** **Microkernel**: el servidor FS es un proceso de user space con su propio espacio de memoria. Al morir (segfault, corrupción de memoria…), el kernel lo detecta como proceso muerto. El resto del sistema —kernel, drivers de red, otras aplicaciones— continúa funcionando porque no comparten espacio de memoria con ese servidor. Los procesos que intentaban operaciones de FS recibirán un error de IPC, pero el sistema no cae. El servidor puede reiniciarse.
+
+**Kernel monolítico**: el código del FS corre en ring 0 compartiendo el mismo espacio de memoria que el scheduler, el MM y todos los drivers. Una corrupción de memoria puede sobrescribir estructuras del kernel. El resultado más probable es un kernel panic inmediato y el sistema se cae por completo, perdiendo todos los procesos en ejecución.
+
+---
+
+**Pregunta 3.** **Acertó en**: los sistemas de misión crítica (aviónica, automoción, médico, industrial) son dominados por microkernels: QNX, VxWorks, PikeOS. La verificación formal demostró ser posible y útil en producción (seL4 en drones DARPA, vehículos autónomos). Los microkernels de tercera generación (familia L4) cerraron gran parte de la brecha de rendimiento que Torvalds señalaba.
+
+**Falló en**: Linux no se volvió obsoleto. Los servidores, el escritorio y Android dominan el mercado de propósito general. El rendimiento fue el factor determinante en ese mercado y los microkernels tardaron décadas en ser competitivos. Treinta años después, Linux sigue ganando en benchmarks de servidores.
+
+---
+
+**Pregunta 4.** Verificación formal significa que se construyó una **prueba matemática completa**, sin huecos, de que el código C de seL4 (~8.700 líneas) es una refinación correcta de su especificación abstracta. La herramienta usada fue el asistente de pruebas **Isabelle/HOL**. La prueba tiene ~200.000 líneas y cubre todos los estados posibles del sistema, sin casos no probados.
+
+**Garantiza**: ausencia de deadlocks, ausencia de acceso a memoria no inicializada, que el sistema de capacidades (capability system) no puede ser bypasseado (ningún proceso obtiene acceso a un recurso sin concesión explícita), y que el comportamiento del código C es exactamente el descrito en la especificación.
+
+**No garantiza**: bugs en el hardware, en el compilador GCC, en el bootloader, en los drivers de sistema (que corren fuera del microkernel en user space), ni errores en la propia especificación abstracta (si la especificación describe el comportamiento incorrecto, la implementación lo implementa correctamente).
+
+---
+
+**Pregunta 5.** **Aislamiento de fallos garantizado por hardware**. En QNX Neutrino, cada driver es un proceso de usuario con su propio espacio de memoria y privilegios mínimos. Si el driver de infotainment falla o es comprometido, la MMU impide físicamente que acceda a la memoria del driver de control del motor. La separación entre dominios de seguridad (entretenimiento vs. control crítico del vehículo) es una propiedad del hardware, no una convención de software que alguien podría romper con un bug. En Linux monolítico, un bug en el subsistema de USB o audio corre en ring 0 y puede corromper la memoria de cualquier otro subsistema incluyendo los críticos.
+
+---
+
+**Pregunta 6.** **Microkernel**: todas las aplicaciones comparten los mismos servidores de OS. El servidor de ficheros, la pila TCP/IP y el driver de disco son procesos únicos que todas las aplicaciones del sistema utilizan. Los servidores están en user space pero son compartidos.
+
+**Library OS**: cada aplicación lleva su propio OS como biblioteca enlazada estáticamente. No hay ningún código de OS compartido entre aplicaciones: cada instancia tiene su propia pila TCP/IP, su propio VFS, sus propios drivers. Los servicios del OS son completamente privados a cada aplicación y las versiones pueden diferir entre instancias. El kernel subyacente solo hace multiplexado mínimo de hardware.
+
+---
+
 ## Referencias
 
 - **Accesible online**: Debate original Torvalds-Tanenbaum (29 ene 1992) — archivo en `groups.google.com/g/comp.os.minix`
