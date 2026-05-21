@@ -223,4 +223,13 @@ Todo lo demás (drivers, FS, red, seguridad) puede vivir en user space y comunic
 > Añade aquí tus notas, conexiones con experiencia previa y dudas al estudiar esta lección.
 
 ---
+---
+
+## Lectura complementaria
+
+> **[📐 Anexo 03 — Arquitecturas de OS: del Kernel Monolítico al Unikernel](anexo-03-arquitecturas-os.md)**  
+> Tres niveles de profundidad (básico · intermedio · avanzado), diagramas C4 y Mermaid de cada arquitectura, flujos de syscall e IPC comparados, y glosario completo de términos técnicos.
+
+---
+
 *← [Día 02 — Kernel monolítico](leccion-02-kernel-monolitico.md) · [Día 04 — User vs kernel space](leccion-04-user-vs-kernel-space.md) →*

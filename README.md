@@ -125,7 +125,7 @@ graph LR
 |-----|--------|------|---------|
 | L | **Día 01** — Qué es un kernel y para qué sirve | Lectura | [`leccion-01-que-es-un-kernel.md`](fase-1-fundamentos/leccion-01-que-es-un-kernel.md) |
 | M | **Día 02** — Kernel monolítico: Linux por dentro | Lectura | [`leccion-02-kernel-monolitico.md`](fase-1-fundamentos/leccion-02-kernel-monolitico.md) |
-| X | **Día 03** — Microkernel: Mach, QNX y seL4 | Lectura | [`leccion-03-microkernel.md`](fase-1-fundamentos/leccion-03-microkernel.md) |
+| X | **Día 03** — Microkernel: Mach, QNX y seL4 | Lectura | [`leccion-03-microkernel.md`](fase-1-fundamentos/leccion-03-microkernel.md) · [📐 Anexo: arquitecturas comparadas](fase-1-fundamentos/anexo-03-arquitecturas-os.md) |
 | J | **Día 04** — Espacio de usuario vs espacio de kernel | Lectura | [`leccion-04-user-vs-kernel-space.md`](fase-1-fundamentos/leccion-04-user-vs-kernel-space.md) |
 | V | **Día 05** — Repaso semana 1 + mapa mental propio | Repaso | [`leccion-05-repaso-semana-1.md`](fase-1-fundamentos/leccion-05-repaso-semana-1.md) |
 
