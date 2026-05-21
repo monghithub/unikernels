@@ -387,13 +387,54 @@ En la práctica, un unikernel para ese caso usa una imagen de pocos MB frente a 
 
 ## Notas personales
 
-> Añade aquí tus notas, dudas y conexiones con lo que ya sabes al estudiar esta
-> lección. Algunos puntos de partida:
->
-> - ¿Cuántas líneas de código tiene el kernel que corre en tu máquina ahora
->   mismo? (`uname -r` y luego búscalo en kernel.org)
-> - ¿Qué módulos tiene cargados tu sistema? (`lsmod | wc -l`)
-> - ¿Cuánto ocupa el bzImage del kernel en tu /boot?
+**Kernel en ejecución:** `6.14.0-37-generic`
+
+**¿Cuántas líneas de código tiene el kernel 6.14?**
+
+Según los análisis de Linux Kernel Statistics y los datos publicados por el equipo de desarrollo (Greg Kroah-Hartman), el kernel 6.14 (marzo 2025) tiene aproximadamente **~37 millones de líneas de código**:
+
+| Área | LOC aprox. |
+|---|---|
+| Drivers (`drivers/`) | ~21 M (>55 %) |
+| Arquitecturas (`arch/`) | ~3,5 M |
+| Sistemas de ficheros (`fs/`) | ~2,5 M |
+| Red (`net/`) | ~2 M |
+| Core del kernel (`kernel/`, `mm/`, `ipc/`) | ~1,5 M |
+| Resto (crypto, tools, scripts…) | ~6 M |
+
+Los drivers solos superan el 55 % del código fuente total. La mayoría de esos 21 millones de líneas controlan hardware que este sistema nunca va a ver.
+
+---
+
+**¿Qué módulos tiene cargados el sistema?**
+
+`lsmod | wc -l` devuelve **243 líneas** (1 cabecera + **242 módulos activos**).
+
+Cada uno de esos 242 módulos es código que se cargó dinámicamente en ring 0 porque el sistema detectó hardware o se configuró para ello. Son 242 piezas de código con acceso total al kernel que no existirían en un unikernel orientado a una sola aplicación.
+
+---
+
+**¿Cuánto ocupa el bzImage en /boot?**
+
+```
+/boot/vmlinuz-6.14.0-37-generic  →  15 MB
+/boot/vmlinuz-6.17.0-14-generic  →  16 MB  (kernel más nuevo instalado)
+```
+
+Estas son imágenes **comprimidas** (el kernel se descomprime en RAM al arrancar). El kernel descomprimido en RAM ocupa bastante más.
+
+---
+
+**La paradoja que conecta con los unikernels**
+
+| | Kernel Linux (este sistema) | Unikernel típico |
+|---|---|---|
+| LOC totales del proyecto | ~37 millones | ~50–500 mil |
+| Imagen en disco | 15–16 MB (comprimida) | 1–5 MB (aplicación incluida) |
+| Módulos en tiempo de ejecución | 242 | 0 |
+| Código ejecutándose realmente para tu app | imposible saberlo | exactamente el necesario |
+
+Esos 242 módulos son 242 piezas de código que no necesitaban existir si solo corrieras una aplicación. Un unikernel compila únicamente lo que la app usa: sin WiFi → sin driver de WiFi; sin NTFS → sin parser de NTFS. Es linkado estático llevado al extremo, y es exactamente lo que estudiarás en la fase 2.
 
 ---
 
